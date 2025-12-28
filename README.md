@@ -20,11 +20,13 @@
 - MCP服务支持XTC构建
 
 ## AI功能配置
-大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1
-MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
-生图：仅支持modelscope提供的生图模型和字节火山引擎生图模型，使用字节字节火山引擎需要在requirements.txt中添加`volcengine-python-sdk[ark]`
+
+- 大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1
+- MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
+- 生图：仅支持modelscope提供的生图模型和字节火山引擎生图模型，使用字节字节火山引擎需要在requirements.txt中添加`volcengine-python-sdk[ark]`
 
 ## 通过一个modelscope api-key白嫖所有AI功能
+
 大模型、生图、联网搜索？配置太复杂，要花钱？？
 感谢modelscope的免费白嫖api，让我们能用一个api-key白嫖XTEAILINK的所有ai功能！
 1. 创建一个 [modelscope](https://www.modelscope.cn/user/register) 账号
@@ -40,13 +42,15 @@ MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
 - 功能: 将 EPUB 转换为 XTC/XTG 格式，支持 PNG 图片处理
 - 位置: `tool/epub2xtc-main/`
 
-### zcode
+### z code
 本项目完全使用智谱z code和GLM-4.7 vibecoding完成！
 
 ## 快速开始
 
 ### 使用 Docker 部署（推荐）
+
 #### nas部署
+
 以飞牛fnos为例。
 1. 文件上传到nas
 2. 先从镜像仓库拉一个ubuntu，方便基础镜像的拉取
@@ -54,6 +58,7 @@ MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
 4. 访问服务：http://nas-ip:8098
 
 #### docker-compose
+
 1. 克隆项目并进入目录：
 ```bash
 cd XTEAILINK
@@ -71,7 +76,9 @@ docker-compose up -d --build
 docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，您可以自行替换为别的基础镜像。（修改Dockerfile最上边的`FROM ubuntu`为你的基础镜像）
 
 ### Windows运行
+
 #### realease版本
+
 1. 下载release版本：
 国内可从网盘下载
 [百度网盘](https://pan.baidu.com/s/1jOF86KVCeZ8ze8BcEQFxCQ?pwd=3379)
@@ -79,6 +86,7 @@ docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，�
 2. 双击`一键启动.bat`运行
 
 #### 源码版本
+
 1. 安装依赖：
 你的电脑需要有python环境和nv，如果没有uv请安装uv
 ```bash
@@ -111,6 +119,7 @@ start.bat
 - `8099` - MCP端口
 
 ## MCP
+
 你可以用 http://服务器地址:8099/mcp 连接到SteamableHTTP的MCP服务，可让LLM将任何内容转为txt，直接传输到您的电子纸！
 
 ## 项目结构
@@ -133,3 +142,14 @@ XTEAILINK/
 ├── docker-compose.yml   # Docker Compose 配置
 └── README.md           # 项目说明
 ```
+
+## 常见问题
+
+### docker构建失败，我拉不下来ubuntu镜像
+请用记事本或编辑器打开Dockerfile，将第一行`FROM ubuntu`改为`FROM docker.xuanyuan.run/library/ubuntu:latest`，尝试从国内源拉取。
+
+### windows使用realease版本一键启动失败
+尝试自行安装一个python3.12
+
+### 为什么转换的漫画那么黑
+当前只支持XTG模式，没有支持阅星曈XTH格式，我们还在努力支持新的格式。
