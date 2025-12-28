@@ -58,7 +58,7 @@ docker-compose up -d --build
 
 3. 访问服务：
 - 主服务：http://localhost:8098
-- 其他服务：http://localhost:8099
+- mcp：http://localhost:8099/mcp
 
 docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，您可以自行替换为别的基础镜像。
 
@@ -82,6 +82,9 @@ pip install uv
 # 推荐使用 start.bat（Windows）
 start.bat
 ```
+
+3. 访问服务：
+浏览器访问[http://127.0.0.1:8098](http://127.0.0.1:8098)
 
 ## 配置
 
