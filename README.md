@@ -77,7 +77,7 @@ docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，�
 
 ### Windows运行
 
-#### realease版本
+#### release版本
 
 1. 下载release版本：
 国内可从网盘下载
@@ -88,7 +88,7 @@ docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，�
 #### 源码版本
 
 1. 安装依赖：
-你的电脑需要有python环境和nv，如果没有uv请安装uv
+你的电脑需要有python环境和uv，如果没有uv请安装uv
 ```bash
 pip install uv
 ```
@@ -149,7 +149,7 @@ XTEAILINK/
 请用记事本或编辑器打开Dockerfile，将第一行`FROM ubuntu`改为`FROM docker.xuanyuan.run/library/ubuntu:latest`，尝试从国内源拉取。
 
 ### windows使用realease版本一键启动失败
-尝试自行安装一个python3.12
+可能是uv无法自动获取合适的python版本，尝试自行安装一个python3.12
 
 ### 为什么转换的漫画那么黑
 当前只支持XTG模式，没有支持阅星曈XTH格式，我们还在努力支持新的格式。
