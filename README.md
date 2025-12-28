@@ -17,6 +17,7 @@
 - RSS订阅和网页内容获取的油猴脚本
 - 电子期刊排版优化
 - 传书自动整理
+- MCP服务支持XTC构建
 
 ## AI功能配置
 大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1
@@ -39,13 +40,20 @@ MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
 - 功能: 将 EPUB 转换为 XTC/XTG 格式，支持 PNG 图片处理
 - 位置: `tool/epub2xtc-main/`
 
-### zcoder
-本项目完全使用智谱zcoder和GLM-4.7 vibecoding完成！
+### zcode
+本项目完全使用智谱z code和GLM-4.7 vibecoding完成！
 
 ## 快速开始
 
 ### 使用 Docker 部署（推荐）
+#### nas部署
+以飞牛fnos为例。
+1. 文件上传到nas
+2. 先从镜像仓库拉一个ubuntu，方便基础镜像的拉取
+3. Docker-Compose-新增项目 路径选择项目目录，提示所选择的路径包含docker-compose，确定，构建后启动容器。
+4. 访问服务：http://nas-ip:8098
 
+#### docker-compose
 1. 克隆项目并进入目录：
 ```bash
 cd XTEAILINK
@@ -60,7 +68,7 @@ docker-compose up -d --build
 - 主服务：http://localhost:8098
 - mcp：http://localhost:8099/mcp
 
-docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，您可以自行替换为别的基础镜像。
+docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，您可以自行替换为别的基础镜像。（修改Dockerfile最上边的`FROM ubuntu`为你的基础镜像）
 
 ### Windows运行
 #### realease版本
@@ -68,7 +76,7 @@ docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，�
 国内可从网盘下载
 [百度网盘](https://pan.baidu.com/s/1jOF86KVCeZ8ze8BcEQFxCQ?pwd=3379)
 
-2. 双击 一键启动.bat 运行
+2. 双击`一键启动.bat`运行
 
 #### 源码版本
 1. 安装依赖：

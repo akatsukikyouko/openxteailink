@@ -27,7 +27,7 @@ if defined VIRTUAL_ENV (
     echo.
 ) else (
     echo [信息] 创建虚拟环境...
-    uv venv %PROJECT_NAME% --clear --python 3.12
+    uv venv %PROJECT_NAME% --python 3.12 --clear
     if %errorlevel% neq 0 (
         echo [错误] 创建虚拟环境失败
         pause
