@@ -18,6 +18,10 @@
 - 电子期刊排版优化
 - 传书自动整理
 
+## AI功能配置
+大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1
+MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
+生图：仅支持modelscope提供的生图模型和字节火山引擎生图模型，使用字节字节火山引擎需要在requirements.txt中添加`volcengine-python-sdk[ark]`
 
 ## 通过一个modelscope api-key白嫖所有AI功能
 大模型、生图、联网搜索？配置太复杂，要花钱？？
@@ -59,7 +63,14 @@ docker-compose up -d --build
 docker部署使用ubuntu作为基础镜像，并基本完全配置国内源，您可以自行替换为别的基础镜像。
 
 ### Windows运行
+#### realease版本
+1. 下载release版本：
+国内可从网盘下载
+[百度网盘](https://pan.baidu.com/s/1jOF86KVCeZ8ze8BcEQFxCQ?pwd=3379)
 
+2. 双击 一键启动.bat 运行
+
+#### 源码版本
 1. 安装依赖：
 你的电脑需要有python环境和nv，如果没有uv请安装uv
 ```bash
