@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  xteailink:
+    build: .
+    container_name: xteailink
+    restart: unless-stopped
+    ports:
+      - "8098:8098"
+      - "8099:8099"
+    volumes:
+      # 持久化上传文件
+      - ./uploads:/app/uploads
+      # 持久化转换输出
+      - ./static/output:/app/static/output
+      # 持久化配置文件
+      - ./config:/app/config
+      # 持久化数据库(如果使用SQLite)
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      # 可选: 设置时区
+      - TZ=Asia/Shanghai
+    networks:
+      - xteailink-network
+
+networks:
+  xteailink-network:
+    driver: bridge

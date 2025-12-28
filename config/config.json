@@ -1,0 +1,34 @@
+{
+  "device": {
+    "ip": "192.168.31.198",
+    "port": 80,
+    "check_interval": 20
+  },
+  "directories": {
+    "base": "/XTEAILINK",
+    "news": "/XTEAILINK/news",
+    "notes": "/XTEAILINK/notes",
+    "books": "/XTEAILINK/books",
+    "website": "/XTEAILINK/website"
+  },
+  "transfer": {
+    "pending_books_dir": "./data/pending_books",
+    "supported_formats": [
+      ".epub",
+      ".txt",
+      ".pdf",
+      ".mobi"
+    ],
+    "retry": {
+      "max_retries": 3,
+      "retry_delay": 2
+    }
+  },
+  "paths": {
+    "config_dir": "./config",
+    "log_dir": "./logs",
+    "data_dir": "./data",
+    "queue_file": "./data/queue.json",
+    "template_dir": "./templates"
+  }
+}

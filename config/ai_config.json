@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "openai": {
+    "base_url": "https://api-inference.modelscope.cn/v1",
+    "api_key": "you api-key",
+    "model": "ZhipuAI/GLM-4.7"
+  },
+  "mcp_servers": [
+    {
+      "name": "模搭bing搜索",
+      "url": "https://mcp.api-inference.modelscope.net/cc6ecf81f41a40/mcp",
+      "enabled": true,
+      "has_header": true,
+      "custom_header": "Authorization:you api-key"
+    }
+  ],
+  "default_image_provider": "zimage",
+  "image_generation": {
+    "enabled": true,
+    "tool": "internal",
+    "api_key": "you api-key",
+    "base_url": "https://api-inference.modelscope.cn/",
+    "model_id": "Tongyi-MAI/Z-Image-Turbo"
+  }
+}

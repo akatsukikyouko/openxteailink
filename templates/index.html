@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XTEAILINK慧星传书 - 星曈传书智能体</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(20, 20, 30, 0.8);
+            --bg-card-hover: rgba(30, 30, 45, 0.9);
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a0b0;
+            --text-muted: #707080;
+            --accent-white: #ffffff;
+            --accent-gray: #c8c8d8;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-glow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* 星空背景 */
+        .starry-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse at top, rgba(30, 30, 50, 0.5) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(20, 20, 35, 0.5) 0%, transparent 50%),
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 30%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 30%);
+        }
+
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+                radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.8), transparent),
+                radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.6), transparent),
+                radial-gradient(1.5px 1.5px at 90px 40px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 130px 80px, rgba(255,255,255,0.7), transparent),
+                radial-gradient(2px 2px at 160px 120px, #fff, transparent);
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            animation: twinkle 5s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 头部 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 32px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+        }
+
+        .logo svg {
+            width: 28px;
+            height: 28px;
+            fill: #0a0a0f;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fff 0%, #c8c8d8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+
+        .header-title p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* 主内容网格 */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            background: var(--bg-card-hover);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title svg {
+            width: 20px;
+            height: 20px;
+            opacity: 0.8;
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 48px 32px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--accent-white);
+            background: rgba(255, 255, 255, 0.08);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-icon svg {
+            width: 32px;
+            height: 32px;
+            fill: var(--text-primary);
+        }
+
+        .upload-text {
+            font-size: 16px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .upload-hint {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .upload-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        /* 按钮 */
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.9) 100%);
+            color: var(--bg-dark);
+            border: none;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #fff 0%, #fff 100%);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-danger {
+            background: rgba(255, 100, 100, 0.1);
+            color: #ff6464;
+            border-color: rgba(255, 100, 100, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 100, 100, 0.2);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* 表单 */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* 状态指示器 */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.online {
+            background: rgba(100, 255, 100, 0.1);
+            color: #64ff64;
+        }
+
+        .status-badge.offline {
+            background: rgba(255, 100, 100, 0.1);
+            color: #ff6464;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 队列列表 */
+        .queue-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .queue-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .queue-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+
+        .queue-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .queue-item-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .queue-item-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .queue-item-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .queue-item-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Toast通知 */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-color: rgba(100, 255, 100, 0.3);
+        }
+
+        .toast.error {
+            border-color: rgba(255, 100, 100, 0.3);
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast.success .toast-icon {
+            fill: #64ff64;
+        }
+
+        .toast.error .toast-icon {
+            fill: #ff6464;
+        }
+
+        .toast-message {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        /* 模态框 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal h3 {
+            margin: 0 0 16px;
+            font-size: 20px;
+            color: var(--text-primary);
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .modal-info {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        .modal-info strong {
+            color: var(--text-primary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 20px;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-area {
+                padding: 32px 20px;
+            }
+
+            .upload-actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .queue-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .queue-item-actions {
+                width: 100%;
+            }
+
+            .toast {
+                min-width: auto;
+                max-width: calc(100vw - 48px);
+            }
+        }
+
+        /* 文件列表 */
+        .file-list {
+            margin-top: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .file-list.show {
+            display: block;
+        }
+
+        .file-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 12px;
+        }
+
+        .file-item-size {
+            color: var(--text-secondary);
+            margin-right: 12px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* 聊天按钮 */
+        .chat-toggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.9) 100%);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .chat-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(255, 255, 255, 0.4);
+        }
+
+        .chat-toggle svg {
+            width: 28px;
+            height: 28px;
+            fill: var(--bg-dark);
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="starry-bg">
+        <div class="stars"></div>
+    </div>
+
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                    </svg>
+                </div>
+                <div class="header-title">
+                    <h1>XTEAILINK 慧星传书</h1>
+                    <p>星曈传书智能体 v2.0</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span class="status-badge" id="deviceStatusBadge">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">检查中...</span>
+                </span>
+            </div>
+        </header>
+
+        <!-- 主内容网格 -->
+        <div class="main-grid">
+            <!-- 上传区域 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+                        </svg>
+                        上传文件
+                    </h2>
+                </div>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                        </svg>
+                    </div>
+                    <div class="upload-text">点击选择或拖拽文件到此处</div>
+                    <div class="upload-hint">支持 EPUB, TXT, PDF, MOBI, PNG, XTC 格式<br>EPUB/PDF/PNG 可转换为 XTC 格式</div>
+                    <div class="upload-actions">
+                        <button class="btn btn-primary" id="selectFileBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            选择文件
+                        </button>
+                        <button class="btn" id="selectFolderBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                            </svg>
+                            选择文件夹
+                        </button>
+                    </div>
+                    <input type="file" id="fileInput" accept=".epub,.txt,.pdf,.mobi,.png,.xtc" multiple>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple>
+                </div>
+
+                <!-- 文件列表 -->
+                <div class="file-list" id="fileList"></div>
+
+                <!-- 进度条 -->
+                <div class="progress-bar" id="uploadProgress" style="display: none;">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- 设备设置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        设备设置
+                    </h2>
+                </div>
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label class="form-label">设备IP地址</label>
+                        <input type="text" class="form-input" id="deviceIp" placeholder="192.168.1.100" value="192.168.68.245">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">设备端口</label>
+                        <input type="number" class="form-input" id="devicePort" placeholder="80" value="80">
+                    </div>
+                    <div style="margin-top: 24px;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">保存设置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 传书队列 -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    传书队列
+                </h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-small" id="refreshQueue">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                        </svg>
+                        刷新
+                    </button>
+                    <button class="btn btn-small btn-danger" id="clearQueue">清空</button>
+                </div>
+            </div>
+            <div class="queue-list" id="queueList">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z"/>
+                    </svg>
+                    <p>队列为空</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 转换选项对话框 -->
+    <div class="modal-overlay" id="convertModal">
+        <div class="modal">
+            <h3>批量转换确认</h3>
+            <div class="modal-info">
+                <p style="margin-bottom: 8px;">检测到 <strong id="convertableCount">0</strong> 个可转换文件:</p>
+                <div id="convertableList" style="max-height: 200px; overflow-y: auto; margin-top: 8px;"></div>
+            </div>
+            <p>是否将所有可转换文件转换为 XTC 格式?转换后可以获得更好的显示效果。</p>
+            <div class="modal-buttons">
+                <button class="btn" id="modalNoConvert">不转换</button>
+                <button class="btn btn-primary" id="modalConvert">全部转换</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聊天按钮 -->
+    <button class="chat-toggle" id="chatToggle" title="电子期刊创作助手">
+        <svg viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+        </svg>
+    </button>
+
+    <!-- AI聊天窗口 -->
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <div class="chat-title">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                AI助手
+            </div>
+            <div class="chat-actions">
+                <button class="btn-small" id="chatSettings" title="设置">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                    </svg>
+                </button>
+                <button class="btn-small" id="closeChat" title="关闭">×</button>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message assistant">
+                <div class="message-content">
+                    你好！我是<span style="color: #00ff9d; font-weight: bold;">电子期刊创作助手</span>，可以帮你：
+                    <ul style="margin: 8px 0; padding-left: 20px;">
+                        <li>智能创作深度期刊</li>
+                        <li>自动传送到设备</li>
+                        <li>可以自行在设置中配置LLM和MCP，生图能力</li>
+                    </ul>
+                    试试说："生成一篇关于人工智能的电子期刊"
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <textarea class="chat-input" id="chatInput" placeholder="输入主题，我会为你创作电子期刊..." rows="1"></textarea>
+            <button class="send-button" id="sendMessage">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- AI设置对话框 -->
+    <div class="modal-overlay" id="aiSettingsModal">
+        <div class="modal" style="max-width: 600px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
+            <h3 style="flex-shrink: 0;">AI设置</h3>
+            <form id="aiSettingsForm" style="flex: 1; overflow-y: auto; padding-right: 8px;">
+                <div class="form-group">
+                    <label class="form-label">启用AI功能</label>
+                    <select class="form-input" id="aiEnabled">
+                        <option value="true">是</option>
+                        <option value="false">否</option>
+                    </select>
+                </div>
+
+                <div style="margin: 20px 0; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">OpenAI配置</div>
+
+                    <div class="form-group">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-input" id="openaiBaseUrl" placeholder="http://localhost:11434/v1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-input" id="openaiApiKey" placeholder="sk-xxx">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">模型名称</label>
+                        <input type="text" class="form-input" id="openaiModel" placeholder="qwen2.5:latest">
+                    </div>
+                </div>
+
+                <div style="margin: 20px 0; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">MCP服务器</div>
+
+                    <div id="mcpServersList"></div>
+                    <button class="btn btn-small" type="button" id="addMcpServer" style="margin-top: 8px;">
+                        + 添加MCP服务器
+                    </button>
+                </div>
+
+                <div style="margin: 20px 0; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">生图工具</div>
+
+                    <div class="form-group">
+                        <label class="form-label">生图选项</label>
+                        <select class="form-input" id="imageProvider">
+                            <option value="disabled">关闭</option>
+                            <option value="zimage">使用模搭 (ModelScope)</option>
+                            <option value="doubao">使用字节豆包</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">模型ID</label>
+                        <input type="text" class="form-input" id="imageModelId" placeholder="例如: Tongyi-MAI/Z-Image-Turbo">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-input" id="imageApiKey" placeholder="输入API密钥">
+                    </div>
+
+                    <small style="color: var(--text-secondary); font-size: 12px; display: block; margin-top: 8px;">
+                        • 模搭: 使用 ModelScope Z-Image<br>
+                        • 字节: 使用火山引擎豆包生图（需安装 volcengine-python-sdk）
+                    </small>
+                </div>
+            </form>
+            <div class="modal-buttons" style="flex-shrink: 0; padding-top: 16px; border-top: 1px solid var(--border-color); margin-top: 16px;">
+                <button type="button" class="btn" id="testAiConnection">测试连接</button>
+                <button type="button" class="btn" id="cancelAiSettings">取消</button>
+                <button type="button" class="btn btn-primary" id="saveAiSettings">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/chat.js"></script>
+    <!-- Markdown渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</body>
+</html>
