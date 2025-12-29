@@ -40,7 +40,15 @@
 用于生成 XTEINK 电子书格式的转换工具
 - GitHub: [epub2xtc](https://github.com/jonasdiemer/epub2xtc)
 - 功能: 将 EPUB 转换为 XTC/XTG 格式，支持 PNG 图片处理
-- 位置: `tool/epub2xtc-main/`
+
+
+### XtcViewer
+XTC查看器
+- GitHub: [XtcViewer](https://github.com/SimoGecko/XtcViewer)
+
+### xtctool
+转换为XTC、XTG、XTH的实现
+-[xtctool](https://github.com/chazeon/xtctool)
 
 ### z code
 本项目完全使用智谱z code和GLM-4.7 vibecoding完成！
@@ -150,6 +158,3 @@ XTEAILINK/
 
 ### windows使用realease版本一键启动失败
 可能是uv无法自动获取合适的python版本，尝试自行安装一个python3.12
-
-### 为什么转换的漫画那么黑
-当前只支持XTG模式，没有支持阅星曈XTH格式，我们还在努力支持新的格式。

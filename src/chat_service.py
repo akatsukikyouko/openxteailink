@@ -468,8 +468,9 @@ class ChatService:
                 title_clean = re.sub(r'[<>:"/\\|?*]', '', title)
                 title_clean = title_clean[:30] if len(title_clean) > 30 else title_clean  # 限制长度
 
-                # 创建输出目录
-                output_dir = PathLib("data/publications")
+                # 创建输出目录（使用绝对路径）
+                project_root = Path(__file__).parent.parent
+                output_dir = project_root / "data" / "publications"
                 output_dir.mkdir(parents=True, exist_ok=True)
 
                 # PDF文件路径 - 使用标题作为文件名的一部分
@@ -751,8 +752,9 @@ class ChatService:
                 if success and xtc_path_str:
                     xtc_path = PathLib(xtc_path_str)
 
-                    # 复制到待传书目录
-                    pending_dir = PathLib("data/pending_books")
+                    # 复制到待传书目录（使用绝对路径）
+                    project_root = Path(__file__).parent.parent
+                    pending_dir = project_root / "data" / "pending_books"
                     pending_dir.mkdir(parents=True, exist_ok=True)
 
                     # 创建publications子目录
@@ -764,8 +766,8 @@ class ChatService:
                     import shutil
                     shutil.copy2(xtc_path, target_xtc_path)
 
-                    # 添加到上传队列
-                    queue_file = PathLib("data/queue.json")
+                    # 添加到上传队列（使用绝对路径）
+                    queue_file = project_root / "data" / "queue.json"
                     queue = []
                     if queue_file.exists():
                         with open(queue_file, 'r', encoding='utf-8') as f:

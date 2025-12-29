@@ -97,12 +97,23 @@ class BookTransferApp {
         document.getElementById('modalNoConvert').addEventListener('click', () => {
             this.hideConvertModal(false);
         });
+
+        // 格式选择事件
+        document.querySelectorAll('input[name="convertFormat"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.updateFormatLabelStyles();
+            });
+        });
     }
 
     async handleFileSelect(files) {
         if (files.length === 0) return;
 
-        // 将文件添加到选择列表
+        // 清空之前的文件列表，只处理当前批次
+        this.selectedFiles = [];
+        this.convertResolve = null;
+
+        // 将当前批次的文件添加到选择列表
         for (let file of files) {
             this.selectedFiles.push(file);
         }
@@ -110,7 +121,7 @@ class BookTransferApp {
         // 显示文件列表
         this.displaySelectedFiles();
 
-        // 检查是否有可转换的文件
+        // 检查当前批次是否有可转换的文件
         const convertableFiles = this.selectedFiles.filter(file => {
             const ext = file.name.split('.').pop().toLowerCase();
             return ['epub', 'pdf', 'png'].includes(ext);
@@ -124,6 +135,10 @@ class BookTransferApp {
             // 直接上传
             await this.uploadFiles(false);
         }
+
+        // 上传完成后清空文件列表
+        this.selectedFiles = [];
+        this.fileList.classList.remove('show');
     }
 
     displaySelectedFiles() {
@@ -161,12 +176,42 @@ class BookTransferApp {
                 `<div style="padding: 4px 0; font-size: 13px; color: var(--text-secondary);">• ${file.name}</div>`
             ).join('');
 
+            // 重置格式选择为默认XTG
+            document.querySelector('input[name="convertFormat"][value="xtg"]').checked = true;
+            this.updateFormatLabelStyles();
+
             // 显示对话框
             this.convertModal.classList.add('show');
         });
     }
 
+    updateFormatLabelStyles() {
+        const xtgLabel = document.getElementById('formatXtgLabel');
+        const xthLabel = document.getElementById('formatXthLabel');
+        const selectedFormat = document.querySelector('input[name="convertFormat"]:checked').value;
+
+        if (selectedFormat === 'xtg') {
+            xtgLabel.style.borderColor = 'var(--primary-color)';
+            xtgLabel.style.backgroundColor = 'var(--primary-color)';
+            xtgLabel.style.color = 'white';
+            xthLabel.style.borderColor = 'var(--border-color)';
+            xthLabel.style.backgroundColor = 'transparent';
+            xthLabel.style.color = 'var(--text-primary)';
+        } else {
+            xthLabel.style.borderColor = 'var(--primary-color)';
+            xthLabel.style.backgroundColor = 'var(--primary-color)';
+            xthLabel.style.color = 'white';
+            xtgLabel.style.borderColor = 'var(--border-color)';
+            xtgLabel.style.backgroundColor = 'transparent';
+            xtgLabel.style.color = 'var(--text-primary)';
+        }
+    }
+
     hideConvertModal(shouldConvert) {
+        // 保存选择的格式
+        const selectedFormat = document.querySelector('input[name="convertFormat"]:checked').value;
+        this.selectedFormat = selectedFormat;
+
         this.convertModal.classList.remove('show');
 
         // 解析Promise
@@ -219,9 +264,13 @@ class BookTransferApp {
         const formData = new FormData();
         formData.append('file', file);
 
-        // 添加转换标志
+        // 添加转换标志和格式
         if (convertToXtc) {
             formData.append('convert_to_xtc', 'true');
+            // 添加选择的格式（xtg或xth）
+            if (this.selectedFormat) {
+                formData.append('format', this.selectedFormat);
+            }
         }
 
         try {
@@ -290,6 +339,17 @@ class BookTransferApp {
             const statusIcon = this.getStatusIcon(item.status);
             const statusText = this.getStatusText(item.status);
 
+            // 检查是否是XTC文件
+            const isXTC = item.name.toLowerCase().endsWith('.xtc');
+            const viewButton = isXTC ? `
+                <button class="btn btn-small btn-primary" onclick="app.viewXTCFile('${item.id}', '${item.name}')" title="浏览XTC文件">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
+                    </svg>
+                    浏览
+                </button>
+            ` : '';
+
             queueItem.innerHTML = `
                 <div class="queue-item-info">
                     <div class="queue-item-name">${item.name}</div>
@@ -303,11 +363,22 @@ class BookTransferApp {
                     </div>
                 </div>
                 <div class="queue-item-actions">
+                    ${viewButton}
                     <button class="btn btn-small btn-danger" onclick="app.removeFromQueue('${item.id}')">删除</button>
                 </div>
             `;
             this.queueList.appendChild(queueItem);
         });
+    }
+
+    viewXTCFile(fileId, fileName) {
+        // 打开XTC查看器 - 直接使用文件ID（更安全）
+        if (fileId) {
+            const viewerUrl = `/xtc-viewer?id=${encodeURIComponent(fileId)}`;
+            window.open(viewerUrl, '_blank');
+        } else {
+            this.showToast('文件ID不存在');
+        }
     }
 
     getStatusIcon(status) {

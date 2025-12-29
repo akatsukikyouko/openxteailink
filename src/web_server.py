@@ -12,6 +12,7 @@ import tempfile
 import uuid
 import time
 import shutil
+import struct
 import threading
 import asyncio
 from pathlib import Path
@@ -31,8 +32,8 @@ from chat_service import get_chat_service
 project_root = Path(__file__).parent.parent
 static_folder_path = project_root / 'static'
 
-# 配置Flask，使用绝对路径
-app = Flask(__name__, static_folder=str(static_folder_path))
+# 配置Flask，禁用自动静态路由，手动管理
+app = Flask(__name__, static_folder=None)  # 禁用自动静态路由
 CORS(app)
 
 # 配置日志
@@ -48,8 +49,8 @@ logger = logging.getLogger(__name__)
 
 # 全局变量
 transfer_service = None
-queue_file = Path("data/queue.json")
-pending_dir = Path("data/pending_books")
+queue_file = project_root / "data" / "queue.json"
+pending_dir = project_root / "data" / "pending_books"
 background_thread = None
 mcp_thread = None
 stop_background_thread = False
@@ -450,26 +451,28 @@ def convert_pdf_to_txt(pdf_path: Path) -> Optional[Path]:
 @app.route('/')
 def index():
     """主页"""
-    return send_from_directory('../templates', 'index.html')
+    return send_from_directory(str(project_root / 'templates'), 'index.html')
 
+# 静态文件路由 - 更具体的路由放在前面
 @app.route('/static/js/<path:filename>')
 def serve_static_js(filename):
     """提供JS静态文件"""
-    return send_from_directory('../static/js', filename)
+    logger.info(f"JS文件请求: /static/js/{filename}")
+    try:
+        return send_from_directory(str(project_root / 'static' / 'js'), filename)
+    except FileNotFoundError:
+        logger.error(f"JS文件不存在: {project_root / 'static' / 'js' / filename}")
+        return jsonify({'error': '文件不存在', 'path': f'js/{filename}'}), 404
 
 @app.route('/static/<path:filename>')
 def serve_static_files(filename):
     """提供所有静态文件（包括生成的图片）"""
-    # Flask会自动使用配置的static_folder
-    # 记录请求以便调试
     logger.info(f"静态文件请求: /static/{filename}")
-
-    # 直接使用send_from_directory，Flask会处理路径
     try:
-        return send_from_directory(str(static_folder_path), filename)
+        return send_from_directory(str(project_root / 'static'), filename)
     except FileNotFoundError:
-        logger.error(f"文件不存在: {static_folder_path / filename}")
-        return jsonify({'error': '文件不存在', 'path': str(filename)}), 404
+        logger.error(f"静态文件不存在: {project_root / 'static' / filename}")
+        return jsonify({'error': '文件不存在', 'path': filename}), 404
 
 @app.route('/api/convert', methods=['POST'])
 def convert_file():
@@ -483,6 +486,11 @@ def convert_file():
         if file.filename == '':
             return jsonify({'success': False, 'message': '文件名为空'}), 400
 
+        # 获取转换模式（默认为xtg）
+        format_mode = request.form.get('format', 'xtg').lower()
+        if format_mode not in ['xtg', 'xth']:
+            return jsonify({'success': False, 'message': '无效的格式模式，仅支持: xtg, xth'}), 400
+
         # 检查文件格式
         allowed_extensions = {'.epub', '.pdf', '.png'}
         file_ext = Path(file.filename).suffix.lower()
@@ -494,10 +502,10 @@ def convert_file():
         temp_file = temp_dir / file.filename
         file.save(str(temp_file))
 
-        logger.info(f"文件上传成功，准备转换: {file.filename}")
+        logger.info(f"文件上传成功，准备转换: {file.filename} (模式: {format_mode.upper()})")
 
         # 执行转换
-        success, result = conversion_service.convert_to_xtc(temp_file)
+        success, result = conversion_service.convert_to_xtc(temp_file, format_mode=format_mode)
 
         # 清理临时文件
         try:
@@ -540,6 +548,11 @@ def upload_file():
         # 检查是否需要转换为XTC
         convert_to_xtc_flag = request.form.get('convert_to_xtc', 'false').lower() == 'true'
 
+        # 获取转换模式（默认为xtg）
+        format_mode = request.form.get('format', 'xtg').lower()
+        if format_mode not in ['xtg', 'xth']:
+            format_mode = 'xtg'
+
         # 检查文件格式
         allowed_extensions = {'.epub', '.txt', '.pdf', '.mobi', '.xtc'}
         file_ext = Path(file.filename).suffix.lower()
@@ -556,23 +569,27 @@ def upload_file():
             temp_file = temp_dir / file.filename
             file.save(str(temp_file))
 
-            logger.info(f"开始转换文件: {file.filename}")
+            logger.info(f"开始转换文件: {file.filename} (模式: {format_mode.upper()})")
 
             # 执行转换
-            success, result = conversion_service.convert_to_xtc(temp_file)
-
-            # 清理临时文件
-            try:
-                shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception as e:
-                logger.warning(f"清理临时目录失败: {e}")
+            success, result = conversion_service.convert_to_xtc(temp_file, format_mode=format_mode)
 
             if not success:
+                # 转换失败，清理临时目录
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as e:
+                    logger.warning(f"清理临时目录失败: {e}")
                 return jsonify({'success': False, 'message': f'转换失败: {result}'}), 500
 
             # 使用转换后的XTC文件
             xtc_path = Path(result)
             if not xtc_path.exists():
+                # 转换后的文件不存在，清理临时目录
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception as e:
+                    logger.warning(f"清理临时目录失败: {e}")
                 return jsonify({'success': False, 'message': '转换后的文件不存在'}), 500
 
             # 直接保存到book目录
@@ -610,6 +627,12 @@ def upload_file():
             save_queue(queue)
 
             logger.info(f"文件转换成功并保存到book目录: {file.filename} -> {new_filename}")
+
+            # 现在可以安全地清理临时目录了
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception as e:
+                logger.warning(f"清理临时目录失败: {e}")
 
             # 返回成功响应
             return jsonify({
@@ -1076,6 +1099,170 @@ def get_generated_images():
     except Exception as e:
         logger.error(f"获取图片列表失败: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/xtc-files', methods=['GET'])
+def get_xtc_files():
+    """获取队列中的所有XTC文件列表"""
+    try:
+        xtc_files = []
+
+        # 扫描多个目录：pending目录、book目录、data/books目录、publications目录（使用绝对路径）
+        directories_to_scan = [
+            pending_dir,
+            project_root / "book",
+            project_root / "data" / "books",
+            project_root / "data" / "pending_books" / "publications"  # AI生成的期刊目录
+        ]
+
+        logger.info(f"扫描XTC文件，项目根目录: {project_root}")
+        logger.info(f"待扫描目录: {[str(d) for d in directories_to_scan]}")
+
+        for directory in directories_to_scan:
+            logger.info(f"检查目录: {directory}, 存在: {directory.exists()}")
+            if not directory.exists():
+                continue
+
+            xtc_in_dir = list(directory.glob('*.xtc'))
+            logger.info(f"  在 {directory.name} 找到 {len(xtc_in_dir)} 个XTC文件")
+
+            for file_path in xtc_in_dir:
+                # 读取XTC文件头获取页数
+                page_count = 0
+                try:
+                    with open(file_path, 'rb') as f:
+                        header = f.read(48)
+                        if len(header) >= 8:
+                            # 检查魔数
+                            magic = struct.unpack('<I', header[:4])[0]
+                            if magic == 0x00435458:  # "XTC\0"
+                                page_count = struct.unpack('<H', header[6:8])[0]
+                except Exception as e:
+                    logger.warning(f"读取XTC文件头失败 {file_path.name}: {e}")
+
+                file_size = file_path.stat().st_size
+
+                xtc_files.append({
+                    'name': file_path.name,
+                    'path': str(file_path),
+                    'size': file_size,
+                    'page_count': page_count,
+                    'directory': directory.name
+                })
+
+        logger.info(f"总共找到 {len(xtc_files)} 个XTC文件")
+
+        # 按文件名排序
+        xtc_files.sort(key=lambda x: x['name'])
+
+        return jsonify(xtc_files)
+
+    except Exception as e:
+        logger.error(f"获取XTC文件列表失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/xtc-view', methods=['GET'])
+def view_xtc_file():
+    """读取并返回XTC文件内容（二进制）"""
+    try:
+        file_path = request.args.get('path')
+        if not file_path:
+            return jsonify({'success': False, 'message': '缺少文件路径参数'}), 400
+
+        logger.info(f"请求XTC文件: {file_path}")
+
+        file_path = Path(file_path)
+
+        # 安全检查：确保路径在允许的目录内
+        project_root = Path(__file__).parent.parent
+        allowed_dirs = [
+            pending_dir.resolve(),
+            (project_root / "book").resolve(),
+            (project_root / "data" / "books").resolve()
+        ]
+
+        # 规范化路径
+        try:
+            resolved_path = file_path.resolve()
+        except Exception as e:
+            logger.error(f"路径解析失败: {e}")
+            return jsonify({'success': False, 'message': f'路径无效: {str(e)}'}), 400
+
+        is_allowed = any(
+            str(resolved_path).startswith(str(dir.resolve()))
+            for dir in allowed_dirs
+        )
+
+        if not is_allowed:
+            logger.warning(f"路径不在允许范围内: {resolved_path}")
+            return jsonify({'success': False, 'message': '文件不在允许的目录内'}), 403
+
+        if not resolved_path.exists():
+            logger.warning(f"文件不存在: {resolved_path}")
+            return jsonify({'success': False, 'message': '文件不存在'}), 404
+
+        logger.info(f"成功读取XTC文件: {resolved_path.name}")
+
+        # 读取文件内容并返回
+        with open(resolved_path, 'rb') as f:
+            file_content = f.read()
+
+        from flask import Response
+        return Response(file_content, mimetype='application/octet-stream')
+
+    except Exception as e:
+        logger.error(f"读取XTC文件失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/xtc-view-single', methods=['GET'])
+def view_xtc_file_single():
+    """读取并返回单个XTC文件内容（二进制）- 通过队列ID安全访问"""
+    try:
+        file_id = request.args.get('id')
+        if not file_id:
+            return jsonify({'success': False, 'message': '缺少文件ID参数'}), 400
+
+        logger.info(f"简化查看器请求XTC文件ID: {file_id}")
+
+        # 从队列中查找文件
+        queue = load_queue()
+        queue_item = None
+        for item in queue:
+            if item['id'] == file_id:
+                queue_item = item
+                break
+
+        if not queue_item:
+            logger.warning(f"文件ID不存在于队列中: {file_id}")
+            return jsonify({'success': False, 'message': '文件不存在'}), 404
+
+        file_path = Path(queue_item['path'])
+
+        # 验证文件存在
+        if not file_path.exists():
+            logger.warning(f"文件不存在: {file_path}")
+            return jsonify({'success': False, 'message': '文件不存在'}), 404
+
+        logger.info(f"成功读取XTC文件: {file_path.name}")
+
+        # 读取文件内容并返回
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+
+        from flask import Response
+        response = Response(file_content, mimetype='application/octet-stream')
+        response.headers['X-File-Name'] = queue_item['name']
+        return response
+
+    except Exception as e:
+        logger.error(f"读取XTC文件失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/xtc-viewer')
+def xtc_viewer_page():
+    """XTC文件浏览器页面（完整版）"""
+    project_root = Path(__file__).parent.parent
+    templates_dir = project_root / 'templates'
+    return send_from_directory(str(templates_dir), 'xtc-viewer.html')
 
 def init_directories():
     """初始化必要的目录"""
