@@ -154,7 +154,7 @@ XTEAILINK/
 ## 常见问题
 
 ### docker构建失败，我拉不下来ubuntu镜像
-请用记事本或编辑器打开Dockerfile，将第一行`FROM ubuntu`改为`FROM docker.xuanyuan.run/library/ubuntu:latest`，尝试从国内源拉取。
+请用记事本或编辑器打开Dockerfile，将第一行`FROM ubuntu`改为`FROM docker.xuanyuan.run/library/ubuntu:latest`或是`FROM docker.1ms.run/library/ubuntu:latest`,尝试从国内源拉取。
 
 ### windows使用realease版本一键启动失败
 可能是uv无法自动获取合适的python版本，尝试自行安装一个python3.12

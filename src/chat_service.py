@@ -596,10 +596,18 @@ class ChatService:
                     logger.error(traceback.format_exc())
                     chinese_font = 'Helvetica'
 
-                # 生成PDF（使用A4，但字体已优化）
+                # 自定义页面尺寸，匹配电子纸屏幕比例（480×800 = 0.6）
+                # 使用reportlab的points单位，1inch = 72points
+                # 目标：178.2mm × 297mm，宽高比0.6，匹配屏幕比例
+                from reportlab.lib.units import mm
+                custom_width = 178.2 * mm  # 转换为points
+                custom_height = 297 * mm   # 转换为points
+                custom_pagesize = (custom_width, custom_height)
+
+                # 生成PDF（使用自定义尺寸，完美匹配电子纸屏幕比例）
                 doc = SimpleDocTemplate(
                     str(pdf_path),
-                    pagesize=A4,
+                    pagesize=custom_pagesize,
                     leftMargin=0.75*inch,
                     rightMargin=0.75*inch,
                     topMargin=0.75*inch,

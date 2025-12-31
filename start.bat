@@ -5,6 +5,8 @@ echo    XTEAILINK 互联启动器
 echo ========================================
 echo.
 
+set UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
 REM 检查uv是否安装
 where uv >nul 2>&1
 if %errorlevel% neq 0 (
