@@ -21,7 +21,7 @@
 
 ## AI功能配置
 
-- 大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1
+- 大模型：支持openAI兼容大模型，需要具有工具调用能力：推荐glm-4.7,minimax-2.1,DeepSeek-V3.2
 - MCP：支持所有的SteamableHTTP的MCP服务，推荐智谱搜索。
 - 生图：仅支持modelscope提供的生图模型和字节火山引擎生图模型，使用字节字节火山引擎需要在requirements.txt中添加`volcengine-python-sdk[ark]`
 
@@ -30,9 +30,12 @@
 大模型、生图、联网搜索？配置太复杂，要花钱？？
 感谢modelscope的免费白嫖api，让我们能用一个api-key白嫖XTEAILINK的所有ai功能！
 1. 创建一个 [modelscope](https://www.modelscope.cn/user/register) 账号
-2. 获取api-key（右上角-账号设置-访问令牌）
+2. 获取api-key（右上角-账号设置-访问令牌,建议建立一个新的长期访问令牌）
 3. MCP广场-必应搜索中文-服务配置，配置长期的bing搜索服务，获取url
-4. 在慧星传书智能体右下角ai助手中配置：大模型api-key，生图api-key，bing搜索url和api-key
+4. 在慧星传书智能体右下角ai助手中配置：大模型url和api-key，生图api-key，bing搜索url和api-key
+
+当前modelscope暂时不支持白嫖GLM4.7了，暂时建议使用deepseek-ai/DeepSeek-V3.2
+
 
 ## 致谢
 
