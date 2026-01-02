@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 文件格式转换服务 (纯Python版本)
-支持将EPUB、PDF等格式转换为电子纸用的XTC格式
+支持将EPUB、MOBI、PDF等格式转换为电子纸用的XTC格式
 仅使用Python库，无需外部工具
 """
 
@@ -19,6 +19,7 @@ from typing import Optional, Tuple, List
 from PIL import Image
 import fitz  # PyMuPDF
 import numpy as np
+import zhconv
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ class ConversionService:
             # 根据文件类型选择转换方法
             if file_ext == '.epub':
                 return self.convert_epub_to_xtc(file_path, output_path, format_mode)
+            elif file_ext == '.mobi':
+                return self.convert_mobi_to_xtc(file_path, output_path, format_mode)
             elif file_ext == '.pdf':
                 return self.convert_pdf_to_xtc(file_path, output_path, format_mode)
             elif file_ext == '.png':
@@ -130,10 +133,425 @@ class ConversionService:
                 except Exception as e:
                     logger.warning(f"清理临时目录失败: {e}")
 
+    def convert_mobi_to_xtc(self, mobi_path: Path, output_path: Optional[Path] = None, format_mode: str = "xtg") -> Tuple[bool, str]:
+        """
+        将MOBI转换为XTC
+
+        流程: MOBI → EPUB → PNG → XTC
+        使用纯Python库实现
+
+        Args:
+            mobi_path: MOBI文件路径
+            output_path: 输出XTC文件路径
+            format_mode: 格式模式，"xtg"(1位单色) 或 "xth"(4级灰度)
+        """
+        temp_dir = None
+        try:
+            logger.info(f"开始转换MOBI: {mobi_path.name} (模式: {format_mode.upper()})")
+
+            # 如果没有指定输出路径，生成默认路径
+            if output_path is None:
+                current_dir = Path(__file__).parent.parent
+                temp_convert_dir = current_dir / "temp_convert"
+                temp_convert_dir.mkdir(exist_ok=True)
+                output_path = temp_convert_dir / (mobi_path.stem + ".xtc")
+
+            # 创建临时目录用于中间文件
+            temp_dir = Path(tempfile.mkdtemp(prefix="mobi2xtc_"))
+
+            # 方法1: 使用mobi库的kindleunpack解包MOBI
+            try:
+                from mobi import kindleunpack
+                from ebooklib import epub
+
+                logger.info("使用mobi库读取MOBI文件")
+
+                # 创建临时EPUB文件
+                temp_epub_path = temp_dir / "converted.epub"
+
+                # 解包MOBI文件
+                unpack_dir = temp_dir / "unpacked"
+                unpack_dir.mkdir(exist_ok=True)
+
+                logger.info(f"解包MOBI到: {unpack_dir}")
+
+                # 使用kindleunpack解包
+                kindleunpack.unpackBook(str(mobi_path), str(unpack_dir))
+
+                logger.info(f"MOBI解包成功")
+
+                # 查找解包后的HTML文件
+                html_files = list(unpack_dir.rglob("*.html")) + list(unpack_dir.rglob("*.htm"))
+
+                if not html_files:
+                    # 尝试查找其他文本文件
+                    text_files = list(unpack_dir.rglob("*.txt"))
+                    if text_files:
+                        html_files = text_files
+                    else:
+                        raise FileNotFoundError("解包后未找到HTML或文本文件")
+
+                logger.info(f"找到 {len(html_files)} 个HTML文件")
+
+                # 查找所有图片文件
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+                image_files = []
+                for ext in image_extensions:
+                    image_files.extend(unpack_dir.rglob(f"*{ext}"))
+                    image_files.extend(unpack_dir.rglob(f"*{ext.upper()}"))
+
+                logger.info(f"找到 {len(image_files)} 个图片文件")
+
+                # 创建EPUB书籍
+                book = epub.EpubBook()
+                book.set_identifier('mobi_' + mobi_path.stem)
+                book.set_title(mobi_path.stem)
+                book.set_language('zh-CN')
+
+                # 添加所有图片到EPUB
+                for idx, img_file in enumerate(image_files):
+                    try:
+                        with open(img_file, 'rb') as f:
+                            img_data = f.read()
+
+                        # 创建图片项
+                        img_item = epub.EpubImage()
+                        # 使用相对路径保持原始结构
+                        img_name = img_file.relative_to(unpack_dir)
+                        img_item.file_name = str(img_name).replace('\\', '/')
+                        img_item.content = img_data
+                        book.add_item(img_item)
+                        logger.info(f"添加图片: {img_item.file_name} ({len(img_data)} bytes)")
+                    except Exception as e:
+                        logger.warning(f"添加图片失败 {img_file.name}: {e}")
+
+                # 添加找到的HTML文件作为章节
+                chapters = []
+                for idx, html_file in enumerate(html_files):
+                    try:
+                        with open(html_file, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+
+                        # 获取章节标题
+                        chapter_title = html_file.stem
+                        chapter = epub.EpubHtml(
+                            title=chapter_title,
+                            file_name=f'chap{idx:03d}.xhtml',
+                            content=content
+                        )
+                        book.add_item(chapter)
+                        chapters.append(chapter)
+                        logger.info(f"添加章节: {chapter_title} ({len(content)} bytes)")
+                    except Exception as e:
+                        logger.warning(f"读取文件失败 {html_file.name}: {e}")
+
+                if not chapters:
+                    raise ValueError("没有成功提取任何章节")
+
+                # 设置目录
+                book.toc = tuple(chapters)
+                book.add_item(epub.EpubNcx())
+                book.add_item(epub.EpubNav())
+                book.spine = ['nav'] + chapters
+
+                # 写入EPUB
+                epub.write_epub(str(temp_epub_path), book, {})
+                logger.info(f"使用mobi库构建EPUB成功: {temp_epub_path}")
+
+                return self.convert_epub_to_xtc(temp_epub_path, output_path, format_mode)
+
+            except ImportError as e:
+                logger.warning(f"mobi库未安装或导入失败: {e}，尝试使用备用方法")
+            except Exception as e:
+                logger.warning(f"mobi库转换失败: {e}")
+                import traceback
+                logger.debug(traceback.format_exc())
+                # 继续尝试备用方法
+
+                # 方法2: 使用ebooklib (如果支持MOBI)
+                try:
+                    from ebooklib import epub
+
+                    logger.info("尝试使用ebooklib直接读取MOBI")
+                    # ebooklib 可能不支持MOBI，这个可能失败
+                    book = epub.read_epub(str(mobi_path))
+                    temp_epub_path = temp_dir / "converted.epub"
+
+                    # 如果成功，重新保存为EPUB
+                    epub.write_epub(str(temp_epub_path), book, {})
+
+                    return self.convert_epub_to_xtc(temp_epub_path, output_path, format_mode)
+
+                except Exception as e:
+                    logger.error(f"ebooklib读取MOBI失败: {e}")
+
+                    # 方法3: 使用mobi2epub的外部工具（如果可用）
+                    logger.info("尝试使用系统工具转换MOBI")
+
+                    # 尝试使用calibre的ebook-convert
+                    import subprocess
+
+                    temp_epub_path = temp_dir / "converted.epub"
+
+                    try:
+                        # 尝试调用ebook-convert（calibre工具）
+                        result = subprocess.run(
+                            ['ebook-convert', str(mobi_path), str(temp_epub_path)],
+                            capture_output=True,
+                            text=True,
+                            timeout=60
+                        )
+
+                        if result.returncode == 0 and temp_epub_path.exists():
+                            logger.info("使用ebook-convert转换成功")
+                            return self.convert_epub_to_xtc(temp_epub_path, output_path, format_mode)
+                        else:
+                            logger.error(f"ebook-convert失败: {result.stderr}")
+
+                    except FileNotFoundError:
+                        logger.warning("未找到ebook-convert工具")
+                    except subprocess.TimeoutExpired:
+                        logger.error("ebook-convert超时")
+                    except Exception as e:
+                        logger.error(f"ebook-convert执行失败: {e}")
+
+                    # 所有方法都失败
+                    return False, "MOBI转换失败：请安装pymobi库（pip install pymobi）或Calibre工具"
+
+        except Exception as e:
+            logger.error(f"MOBI转换失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False, f"转换失败: {str(e)}"
+        finally:
+            # 清理临时文件
+            if temp_dir and temp_dir.exists():
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    logger.debug(f"已清理临时目录: {temp_dir}")
+                except Exception as e:
+                    logger.warning(f"清理临时目录失败: {e}")
+
+    def _wrap_text(self, text: str, font, max_width: int, draw) -> list:
+        """
+        文本自动换行处理
+
+        Args:
+            text: 要换行的文本
+            font: 字体对象
+            max_width: 最大宽度（像素）
+            draw: ImageDraw对象
+
+        Returns:
+            换行后的文本列表
+        """
+        words = list(text)  # 中文按字符分割
+        lines = []
+        current_line = ""
+
+        for char in words:
+            test_line = current_line + char
+            # 获取文本边界框
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            text_width = bbox[2] - bbox[0]
+
+            if text_width <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = char
+
+        if current_line:
+            lines.append(current_line)
+
+        return lines
+
+    def _render_html_content(self, soup, img, draw, y_position, images_dict,
+                            font_large, font_normal, margin, line_height,
+                            page_width, page_height, output_dir, page_num):
+        """
+        渲染HTML内容，支持文本和图片
+
+        Args:
+            soup: BeautifulSoup对象
+            img: PIL Image对象
+            draw: ImageDraw对象
+            y_position: 当前Y坐标
+            images_dict: 图片字典 {filename: content}
+            ... 其他参数
+        """
+        from PIL import Image as PILImage, ImageDraw, ImageFont
+        import io
+
+        def create_new_page():
+            """创建新页面"""
+            nonlocal img, draw, y_position, page_num
+            # 保存当前页面
+            page_path = output_dir / f"page-{page_num:04d}.png"
+            img.save(page_path)
+            page_num += 1
+
+            # 创建新页面
+            img = PILImage.new('RGB', (page_width, page_height), 'white')
+            draw = ImageDraw.Draw(img)
+            y_position = margin
+            return img, draw, y_position, page_num
+
+        # 遍历所有元素(包括嵌套的)
+        # 不再限制递归深度,以找到所有图片和文本
+        body = soup.find('body')
+        if body:
+            # 获取body内的所有元素
+            elements = body.find_all(['img', 'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br'])
+        else:
+            # 如果没有body标签,使用整个文档
+            elements = soup.find_all(['img', 'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br'])
+
+        for element in elements:
+            # 处理图片
+            if element.name == 'img':
+                try:
+                    # 获取图片src
+                    src = element.get('src', '')
+                    if not src:
+                        continue
+
+                    logger.debug(f"处理img标签, src={src}")
+
+                    # 处理相对路径
+                    if src.startswith('../'):
+                        src = src[3:]
+                    elif src.startswith('../..'):
+                        src = src[6:]
+
+                    # 移除开头的斜杠
+                    src = src.lstrip('/')
+
+                    logger.debug(f"标准化后的src={src}")
+
+                    # 在images_dict中查找图片
+                    img_content = None
+                    matched_key = None
+                    for img_key in images_dict:
+                        # 尝试多种匹配方式
+                        if src == img_key:
+                            img_content = images_dict[img_key]
+                            matched_key = img_key
+                            break
+                        elif img_key.endswith(src):
+                            img_content = images_dict[img_key]
+                            matched_key = img_key
+                            break
+                        elif src in img_key:
+                            img_content = images_dict[img_key]
+                            matched_key = img_key
+                            break
+
+                    if img_content:
+                        logger.info(f"找到图片: src='{src}' -> key='{matched_key}'")
+                    else:
+                        logger.warning(f"未找到图片: src='{src}', 可用的keys: {list(images_dict.keys())[:3]}")
+                        continue
+
+                    # 加载图片
+                    epub_img = PILImage.open(io.BytesIO(img_content))
+                    orig_width, orig_height = epub_img.size
+
+                    # 计算图片最大可用尺寸（保持宽高比）
+                    img_width_max = page_width - 2 * margin
+                    img_height_max = page_height - y_position - margin
+
+                    # 如果可用高度太小，创建新页面
+                    if img_height_max < page_height // 3:
+                        img, draw, y_position, page_num = create_new_page()
+                        img_height_max = page_height - y_position - margin
+
+                    # 计算保持宽高比的缩放
+                    orig_ratio = orig_width / orig_height
+                    max_ratio = img_width_max / img_height_max
+
+                    if orig_ratio > max_ratio:
+                        # 图片更宽，以宽度为准
+                        new_width = img_width_max
+                        new_height = int(img_width_max / orig_ratio)
+                    else:
+                        # 图片更高，以高度为准
+                        new_height = img_height_max
+                        new_width = int(img_height_max * orig_ratio)
+
+                    # 调整图片大小（使用LANCZOS重采样，适合文字）
+                    epub_img = epub_img.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+
+                    # 转换为RGB（如果是RGBA）
+                    if epub_img.mode == 'RGBA':
+                        # 创建白色背景
+                        background = PILImage.new('RGB', epub_img.size, 'white')
+                        background.paste(epub_img, mask=epub_img.split()[3])  # 使用alpha通道作为mask
+                        epub_img = background
+                    elif epub_img.mode != 'RGB':
+                        epub_img = epub_img.convert('RGB')
+
+                    # 应用电子墨水屏图像增强
+                    epub_img = self._enhance_for_eink(epub_img)
+
+                    # 检查是否需要新页面
+                    if y_position + new_height > page_height - margin:
+                        img, draw, y_position, page_num = create_new_page()
+
+                    # 计算图片位置（居中）
+                    x_position = (page_width - new_width) // 2
+
+                    # 粘贴图片
+                    img.paste(epub_img, (x_position, y_position))
+                    y_position += new_height + 10  # 图片后增加间距
+
+                    logger.info(f"渲染图片: {orig_width}x{orig_height} -> {new_width}x{new_height}, 位置: y={y_position - new_height - 10}")
+
+                except Exception as e:
+                    logger.error(f"渲染图片失败: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+
+            # 处理文本内容（p, div, h1-h6等）
+            elif element.name in ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                # 获取元素文本
+                text = element.get_text().strip()
+                if text:
+                    # 将繁体中文转换为简体中文
+                    text = zhconv.convert(text, 'zh-cn')
+                    # 确定字体
+                    if element.name.startswith('h'):
+                        current_font = font_large
+                    else:
+                        current_font = font_normal
+
+                    # 自动换行处理
+                    wrapped_lines = self._wrap_text(text, current_font, page_width - 2 * margin, draw)
+
+                    for wrapped_line in wrapped_lines:
+                        # 如果页面满了，创建新页面
+                        if y_position > page_height - margin - line_height:
+                            img, draw, y_position, page_num = create_new_page()
+
+                        # 绘制文本行
+                        draw.text((margin, y_position), wrapped_line, font=current_font, fill='black')
+                        y_position += line_height
+
+                    # 段落后增加间距
+                    y_position += line_height // 2
+
+            # 处理换行
+            elif element.name == 'br':
+                y_position += line_height // 2
+
+        return img, draw, y_position, page_num
+
     def convert_epub_to_png_pure(self, epub_path: Path, output_dir: Path) -> bool:
         """
         使用纯Python库将EPUB转换为PNG
         实现原理：解析EPUB，使用ebooklib提取内容，渲染为图片
+        支持图片提取和渲染
         """
         try:
             import ebooklib
@@ -147,15 +565,37 @@ class ConversionService:
             # 读取EPUB文件
             book = epub.read_epub(str(epub_path))
 
-            # 获取所有章节
+            # 获取所有项目
             items = list(book.get_items())
             logger.info(f"EPUB包含 {len(items)} 个项目")
 
-            # 创建字体
+            # 提取所有图片到字典中
+            images_dict = {}
+            for item in items:
+                if isinstance(item, ebooklib.epub.EpubImage):
+                    try:
+                        img_content = item.get_content()
+                        img_name = item.get_name()
+                        images_dict[img_name] = img_content
+                        logger.info(f"提取图片: {img_name}, 大小: {len(img_content)} bytes")
+                    except Exception as e:
+                        logger.warning(f"提取图片失败 {item.get_name()}: {e}")
+
+            logger.info(f"共提取 {len(images_dict)} 张图片")
+
+            # 创建字体 - 参考AI电子期刊的配置，使用阿里巴巴普惠体
             try:
-                # 尝试使用系统字体
-                font_large = ImageFont.truetype("msyh.ttc", 24)  # 标题
-                font_normal = ImageFont.truetype("msyh.ttc", 16)  # 正文
+                # 使用项目自带的阿里巴巴普惠体
+                fonts_dir = Path(__file__).parent.parent / "fonts"
+                font_file = fonts_dir / 'AlibabaPuHuiTi-3-75-SemiBold.ttf'
+
+                if font_file.exists():
+                    font_large = ImageFont.truetype(str(font_file), 36)  # 标题：增大到36
+                    font_normal = ImageFont.truetype(str(font_file), 28)  # 正文：从16增大到28
+                else:
+                    # 回退到系统字体
+                    font_large = ImageFont.truetype("msyh.ttc", 36)
+                    font_normal = ImageFont.truetype("msyh.ttc", 28)
             except:
                 # 如果找不到字体，使用默认字体
                 font_large = ImageFont.load_default()
@@ -163,56 +603,52 @@ class ConversionService:
 
             page_width = 480
             page_height = 800
-            margin = 20
-            line_height = 24
+            margin = 12  # 减小边距：从20减到12，参考AI期刊的紧凑边距
+            line_height = 40  # 增大行高：从24增大到40，适应更大的字体
             page_num = 0
 
             # 遍历所有HTML内容
             for item in items:
                 if isinstance(item, ebooklib.epub.EpubHtml):
-                    logger.info(f"处理章节: {item.get_name()}")
+                    chapter_name = item.get_name()
+                    logger.info(f"处理章节: {chapter_name}")
 
                     # 解析HTML内容
                     soup = BeautifulSoup(item.get_content(), 'html.parser')
-
-                    # 提取文本
-                    text_content = soup.get_text()
 
                     # 创建页面
                     img = Image.new('RGB', (page_width, page_height), 'white')
                     draw = ImageDraw.Draw(img)
 
-                    # 简单的文本渲染
+                    # 文本渲染位置
                     y_position = margin
 
-                    # 绘制标题
-                    if item.get_name():
-                        title = item.get_name().replace('_', ' ').title()
-                        draw.text((margin, y_position), title, font=font_large, fill='black')
-                        y_position += 40
+                    # 绘制标题（支持自动换行）
+                    if chapter_name:
+                        title = chapter_name.replace('_', ' ').title()
+                        title_lines = self._wrap_text(title, font_large, page_width - 2 * margin, draw)
 
-                    # 绘制正文（按行分割）
-                    for line in text_content.split('\n'):
-                        line = line.strip()
-                        if not line:
-                            y_position += line_height // 2
-                            continue
+                        for title_line in title_lines:
+                            # 检查是否需要新页面
+                            if y_position > page_height - margin - line_height:
+                                page_path = output_dir / f"page-{page_num:04d}.png"
+                                img.save(page_path)
+                                page_num += 1
+                                img = Image.new('RGB', (page_width, page_height), 'white')
+                                draw = ImageDraw.Draw(img)
+                                y_position = margin
 
-                        # 如果页面满了，保存并创建新页面
-                        if y_position > page_height - margin - line_height:
-                            # 保存当前页面
-                            page_path = output_dir / f"page-{page_num:04d}.png"
-                            img.save(page_path)
-                            page_num += 1
+                            draw.text((margin, y_position), title_line, font=font_large, fill='black')
+                            y_position += line_height
 
-                            # 创建新页面
-                            img = Image.new('RGB', (page_width, page_height), 'white')
-                            draw = ImageDraw.Draw(img)
-                            y_position = margin
+                        y_position += 10  # 标题后额外间距
 
-                        # 绘制文本行
-                        draw.text((margin, y_position), line, font=font_normal, fill='black')
-                        y_position += line_height
+                    # 提取并渲染内容（文本和图片）
+                    img, draw, y_position, page_num = self._render_html_content(
+                        soup, img, draw, y_position, images_dict,
+                        font_large, font_normal, margin, line_height,
+                        page_width, page_height, output_dir, page_num
+                    )
 
                     # 保存最后一页
                     if y_position > margin:
@@ -715,12 +1151,17 @@ class ConversionService:
 
             # 转换每个PNG为XTG/XTH字节
             page_blobs = []
-            for png_path in png_files:
+            for i, png_path in enumerate(png_files):
                 img = Image.open(png_path)
                 if format_mode == "xtg":
                     page_bytes = self.png_to_xtg_bytes(img, force_size=(480, 800))
                 else:
                     page_bytes = self.png_to_xth_bytes(img, force_size=(480, 800))
+
+                # 调试：打印第一个页面的magic number
+                if i == 0:
+                    logger.info(f"第一个页面 ({png_path.name}): 大小={len(page_bytes)}, 前4字节={page_bytes[:4].hex()}")
+
                 page_blobs.append(page_bytes)
 
             # 构建XTC文件
@@ -777,7 +1218,7 @@ class ConversionService:
         )
         return header + data
 
-    def build_xtc_from_page_blobs(self, page_blobs: List[bytes], out_path: Path, format_mode: str = "xtg", read_direction=0):
+    def build_xtc_from_page_blobs(self, page_blobs: List[bytes], out_path: Path, format_mode: str = "xtg", read_direction=0, chapters=None):
         """
         从XTG/XTH字节数据构建XTC文件
 
@@ -786,11 +1227,13 @@ class ConversionService:
             out_path: 输出XTC文件路径
             format_mode: 格式模式，"xtg" 或 "xth"
             read_direction: 阅读方向
+            chapters: 忽略此参数(保留兼容性)
         """
         page_count = len(page_blobs)
         header_size = 48
         index_entry_size = 16
         index_offset = header_size
+
         data_offset = index_offset + page_count * index_entry_size
 
         # Index table: <Q I H H> per page
@@ -809,7 +1252,7 @@ class ConversionService:
         xtc_header = struct.pack(
             "<4sHHBBBBIQQQQ",
             b"XTC\x00",         # mark
-            0x0100,                  # version
+            0x0100,             # version
             page_count,         # pageCount
             read_direction,     # readDirection
             0,                  # hasMetadata

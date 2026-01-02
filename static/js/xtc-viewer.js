@@ -267,7 +267,7 @@ class XTCViewer {
             throw new Error('XTC文件太小');
         }
 
-        // 解析文件头（56字节）
+        // 解析文件头（48字节）
         const mark = dv.getUint32(0, true);
         if (mark !== 0x00435458 && mark !== 0x48435458) {
             throw new Error('不是有效的XTC文件');
@@ -281,11 +281,14 @@ class XTCViewer {
         const hasChapters = !!dv.getUint8(11);
 
         this.totalPages = pageCount;
+        console.log(`解析XTC: ${pageCount}页`);
 
         // 读取偏移量
         const metadataOffset = Number(dv.getBigUint64(16, true));
         const indexOffset = Number(dv.getBigUint64(24, true));
         const dataOffset = Number(dv.getBigUint64(32, true));
+
+        console.log(`偏移量: metadata=${metadataOffset}, index=${indexOffset}, data=${dataOffset}`);
 
         // 解析索引表（每个索引项16字节）
         this.pages = [];
@@ -329,7 +332,16 @@ class XTCViewer {
 
         try {
             const entry = this.pages[pageNum];
+            console.log(`显示页面 ${pageNum}: offset=${entry.offset}, size=${entry.size}, total=${this.fileBuffer.byteLength}`);
+
+            // 验证偏移量是否在文件范围内
+            if (entry.offset + entry.size > this.fileBuffer.byteLength) {
+                throw new Error(`页面数据超出范围: ${entry.offset} + ${entry.size} > ${this.fileBuffer.byteLength}`);
+            }
+
             const pageData = this.fileBuffer.slice(entry.offset, entry.offset + entry.size);
+            console.log(`页面数据大小: ${pageData.byteLength}, 前4字节: ${Array.from(new Uint8Array(pageData.slice(0, 4))).map(b => b.toString(16).padStart(2, '0')).join('')}`);
+
             const xtgImage = new XTGH_Image(pageData);
             const { width, height, data } = xtgImage.getImageData();
 

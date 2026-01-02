@@ -608,50 +608,50 @@ class ChatService:
                 doc = SimpleDocTemplate(
                     str(pdf_path),
                     pagesize=custom_pagesize,
-                    leftMargin=0.75*inch,
-                    rightMargin=0.75*inch,
-                    topMargin=0.75*inch,
-                    bottomMargin=0.75*inch
+                    leftMargin=0.375*inch,   # 左边距减小50% (0.75/2 = 0.375)
+                    rightMargin=0.375*inch,  # 右边距减小50%
+                    topMargin=0.375*inch,    # 上边距减小50%
+                    bottomMargin=0.375*inch  # 下边距减小50%
                 )
 
                 title_style = ParagraphStyle(
                     'CustomTitle',
-                    fontSize=60,
+                    fontSize=48,  # 缩小20% (60 * 0.8 = 48)
                     fontName=chinese_font,
                     textColor='#000000',
                     alignment=TA_CENTER,
-                    spaceAfter=40,
-                    leading=80
+                    spaceAfter=32,  # 缩小20% (40 * 0.8 = 32)
+                    leading=64  # 缩小20% (80 * 0.8 = 64)
                 )
 
                 subtitle_style = ParagraphStyle(
                     'CustomSubtitle',
-                    fontSize=50,
+                    fontSize=40,  # 缩小20% (50 * 0.8 = 40)
                     fontName=chinese_font,
                     textColor='#000000',
                     alignment=TA_LEFT,
-                    spaceAfter=30,
-                    leading=70
+                    spaceAfter=24,  # 缩小20% (30 * 0.8 = 24)
+                    leading=56  # 缩小20% (70 * 0.8 = 56)
                 )
 
                 subsubtitle_style = ParagraphStyle(
                     'CustomSubSubtitle',
-                    fontSize=45,
+                    fontSize=36,  # 缩小20% (45 * 0.8 = 36)
                     fontName=chinese_font,
                     textColor='#000000',
                     alignment=TA_LEFT,
-                    spaceAfter=25,
-                    leading=60
+                    spaceAfter=20,  # 缩小20% (25 * 0.8 = 20)
+                    leading=48  # 缩小20% (60 * 0.8 = 48)
                 )
 
                 content_style = ParagraphStyle(
                     'CustomContent',
-                    fontSize=50,
+                    fontSize=40,  # 缩小20% (50 * 0.8 = 40)
                     fontName=chinese_font,
                     textColor='#333333',
                     alignment=TA_LEFT,
-                    spaceAfter=20,
-                    leading=75
+                    spaceAfter=16,  # 缩小20% (20 * 0.8 = 16)
+                    leading=60  # 缩小20% (75 * 0.8 = 60)
                 )
 
                 # 构建PDF内容，按标记插入图片
@@ -665,12 +665,12 @@ class ChatService:
                 date_str = datetime.now().strftime('%Y年%m月%d日')
                 subtitle = ParagraphStyle(
                     'DateSubtitle',
-                    fontSize=72,  # 18 * 4
+                    fontSize=58,  # 缩小20% (72 * 0.8 = 57.6 ≈ 58)
                     fontName=chinese_font,
                     textColor='#666666',
                     alignment=TA_CENTER,
-                    spaceAfter=120,  # 30 * 4
-                    leading=96  # 24 * 4
+                    spaceAfter=96,  # 缩小20% (120 * 0.8 = 96)
+                    leading=77  # 缩小20% (96 * 0.8 = 76.8 ≈ 77)
                 )
                 story.append(Paragraph(f"—— {date_str} ——", subtitle))
                 story.append(Spacer(1, 20))
@@ -741,7 +741,7 @@ class ChatService:
 
                                         img_obj = RLImage(img_data, width=5*inch, height=3.5*inch, lazy=0, hAlign='CENTER')
                                         story.append(img_obj)
-                                        story.append(Spacer(1, 12))
+                                        story.append(Spacer(1, 10))  # 图片后间隔缩小20% (12 * 0.8 = 9.6 ≈ 10)
                                         image_idx += 1
 
                                     except Exception as e:

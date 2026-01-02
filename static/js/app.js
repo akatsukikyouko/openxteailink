@@ -124,7 +124,7 @@ class BookTransferApp {
         // 检查当前批次是否有可转换的文件
         const convertableFiles = this.selectedFiles.filter(file => {
             const ext = file.name.split('.').pop().toLowerCase();
-            return ['epub', 'pdf', 'png'].includes(ext);
+            return ['epub', 'mobi', 'pdf', 'png'].includes(ext);
         });
 
         if (convertableFiles.length > 0) {
@@ -230,7 +230,7 @@ class BookTransferApp {
             const fileExt = file.name.split('.').pop().toLowerCase();
 
             // 判断是否需要转换
-            const shouldConvertThis = convertToXtc && ['epub', 'pdf', 'png'].includes(fileExt);
+            const shouldConvertThis = convertToXtc && ['epub', 'mobi', 'pdf', 'png'].includes(fileExt);
 
             try {
                 this.showUploadProgress((i / this.selectedFiles.length) * 100);

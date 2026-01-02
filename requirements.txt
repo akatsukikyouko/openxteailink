@@ -17,3 +17,4 @@ Pillow>=10.0.0
 asgiref>=3.8.0
 reportlab>=4.0.0
 numpy>=1.24.0
+zhconv>=1.2.0

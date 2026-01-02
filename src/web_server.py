@@ -492,7 +492,7 @@ def convert_file():
             return jsonify({'success': False, 'message': '无效的格式模式，仅支持: xtg, xth'}), 400
 
         # 检查文件格式
-        allowed_extensions = {'.epub', '.pdf', '.png'}
+        allowed_extensions = {'.epub', '.mobi', '.pdf', '.png'}
         file_ext = Path(file.filename).suffix.lower()
         if file_ext not in allowed_extensions:
             return jsonify({'success': False, 'message': f'不支持的文件格式，仅支持: {", ".join(allowed_extensions)}'}), 400
@@ -563,7 +563,7 @@ def upload_file():
         pending_dir.mkdir(exist_ok=True)
 
         # 如果需要转换为XTC
-        if convert_to_xtc_flag and file_ext in {'.epub', '.pdf', '.png'}:
+        if convert_to_xtc_flag and file_ext in {'.epub', '.mobi', '.pdf', '.png'}:
             # 创建临时目录
             temp_dir = Path(tempfile.mkdtemp(prefix="upload_convert_"))
             temp_file = temp_dir / file.filename
