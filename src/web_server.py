@@ -488,8 +488,8 @@ def convert_file():
 
         # 获取转换模式（默认为xtg）
         format_mode = request.form.get('format', 'xtg').lower()
-        if format_mode not in ['xtg', 'xth']:
-            return jsonify({'success': False, 'message': '无效的格式模式，仅支持: xtg, xth'}), 400
+        if format_mode not in ['xtg', 'xth', 'auto']:
+            return jsonify({'success': False, 'message': '无效的格式模式，仅支持: xtg, xth, auto'}), 400
 
         # 检查文件格式
         allowed_extensions = {'.epub', '.mobi', '.pdf', '.png'}
@@ -550,7 +550,7 @@ def upload_file():
 
         # 获取转换模式（默认为xtg）
         format_mode = request.form.get('format', 'xtg').lower()
-        if format_mode not in ['xtg', 'xth']:
+        if format_mode not in ['xtg', 'xth', 'auto']:
             format_mode = 'xtg'
 
         # 检查文件格式

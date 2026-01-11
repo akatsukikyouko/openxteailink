@@ -176,6 +176,20 @@ class BookTransferApp {
                 `<div style="padding: 4px 0; font-size: 13px; color: var(--text-secondary);">• ${file.name}</div>`
             ).join('');
 
+            // 检查是否包含EPUB或MOBI文件（用于智能混合模式）
+            const hasEpubOrMobi = convertableFiles.some(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                return ['epub', 'mobi'].includes(ext);
+            });
+
+            // 显示/隐藏智能混合选项
+            const autoLabel = document.getElementById('formatAutoLabel');
+            if (hasEpubOrMobi) {
+                autoLabel.style.display = 'flex';
+            } else {
+                autoLabel.style.display = 'none';
+            }
+
             // 重置格式选择为默认XTG
             document.querySelector('input[name="convertFormat"][value="xtg"]').checked = true;
             this.updateFormatLabelStyles();
@@ -188,22 +202,32 @@ class BookTransferApp {
     updateFormatLabelStyles() {
         const xtgLabel = document.getElementById('formatXtgLabel');
         const xthLabel = document.getElementById('formatXthLabel');
+        const autoLabel = document.getElementById('formatAutoLabel');
         const selectedFormat = document.querySelector('input[name="convertFormat"]:checked').value;
 
+        // 重置所有标签样式
+        [xtgLabel, xthLabel, autoLabel].forEach(label => {
+            if (label) {
+                label.style.borderColor = 'var(--border-color)';
+                label.style.backgroundColor = 'transparent';
+                label.style.color = 'var(--text-primary)';
+            }
+        });
+
+        // 设置选中标签的样式
+        let selectedLabel;
         if (selectedFormat === 'xtg') {
-            xtgLabel.style.borderColor = 'var(--primary-color)';
-            xtgLabel.style.backgroundColor = 'var(--primary-color)';
-            xtgLabel.style.color = 'white';
-            xthLabel.style.borderColor = 'var(--border-color)';
-            xthLabel.style.backgroundColor = 'transparent';
-            xthLabel.style.color = 'var(--text-primary)';
-        } else {
-            xthLabel.style.borderColor = 'var(--primary-color)';
-            xthLabel.style.backgroundColor = 'var(--primary-color)';
-            xthLabel.style.color = 'white';
-            xtgLabel.style.borderColor = 'var(--border-color)';
-            xtgLabel.style.backgroundColor = 'transparent';
-            xtgLabel.style.color = 'var(--text-primary)';
+            selectedLabel = xtgLabel;
+        } else if (selectedFormat === 'xth') {
+            selectedLabel = xthLabel;
+        } else if (selectedFormat === 'auto') {
+            selectedLabel = autoLabel;
+        }
+
+        if (selectedLabel) {
+            selectedLabel.style.borderColor = 'var(--primary-color)';
+            selectedLabel.style.backgroundColor = 'var(--primary-color)';
+            selectedLabel.style.color = 'white';
         }
     }
 

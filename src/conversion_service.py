@@ -45,7 +45,7 @@ class ConversionService:
         Args:
             file_path: 输入文件路径
             output_path: 输出文件路径（可选，默认与输入文件同目录）
-            format_mode: 格式模式，"xtg"(1位单色) 或 "xth"(4级灰度)
+            format_mode: 格式模式，"xtg"(1位单色)、"xth"(4级灰度) 或 "auto"(智能混合)
 
         Returns:
             Tuple[成功状态, 消息或输出文件路径]
@@ -60,8 +60,18 @@ class ConversionService:
                 temp_convert_dir = current_dir / "temp_convert"
                 temp_convert_dir.mkdir(exist_ok=True)
 
-                # 生成输出文件名
-                output_filename = file_path.stem + ".xtc"
+                # 生成唯一输出文件名：原名_时间戳_随机数.xtc
+                import time
+                import random
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                random_suffix = random.randint(1000, 9999)
+
+                # 截断过长的文件名（保留前80个字符）
+                stem = file_path.stem
+                if len(stem) > 80:
+                    stem = stem[:80]
+
+                output_filename = f"{stem}_{timestamp}_{random_suffix}.xtc"
                 output_path = temp_convert_dir / output_filename
 
             # 根据文件类型选择转换方法
@@ -90,18 +100,26 @@ class ConversionService:
         Args:
             epub_path: EPUB文件路径
             output_path: 输出XTC文件路径
-            format_mode: 格式模式，"xtg"(1位单色) 或 "xth"(4级灰度)
+            format_mode: 格式模式，"xtg"(1位单色)、"xth"(4级灰度) 或 "auto"(智能混合)
         """
         temp_dir = None
         try:
             logger.info(f"开始转换EPUB: {epub_path.name} (模式: {format_mode.upper()})")
 
-            # 如果没有指定输出路径，生成默认路径
+            # output_path 应该由 convert_to_xtc 提供（包含唯一时间戳）
+            # 如果仍然为 None，说明直接调用了此方法，需要生成路径
             if output_path is None:
                 current_dir = Path(__file__).parent.parent
                 temp_convert_dir = current_dir / "temp_convert"
                 temp_convert_dir.mkdir(exist_ok=True)
-                output_path = temp_convert_dir / (epub_path.stem + ".xtc")
+
+                # 生成唯一文件名
+                import time
+                import random
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                random_suffix = random.randint(1000, 9999)
+                stem = epub_path.stem[:80] if len(epub_path.stem) > 80 else epub_path.stem
+                output_path = temp_convert_dir / f"{stem}_{timestamp}_{random_suffix}.xtc"
 
             # 创建临时目录用于中间文件
             temp_dir = Path(tempfile.mkdtemp(prefix="epub2xtc_"))
@@ -115,8 +133,14 @@ class ConversionService:
 
             # PNG → XTC (使用内置实现或png2xtc.py)
             logger.info("步骤2: PNG → XTC")
-            if not self.convert_png_folder_to_xtc(temp_png_dir, output_path, format_mode):
-                return False, "PNG转XTC失败"
+
+            # 检查是否使用智能混合模式
+            if format_mode == "auto":
+                if not self.convert_png_folder_to_xtc_auto(temp_png_dir, output_path):
+                    return False, "PNG转XTC失败"
+            else:
+                if not self.convert_png_folder_to_xtc(temp_png_dir, output_path, format_mode):
+                    return False, "PNG转XTC失败"
 
             logger.info(f"EPUB转换成功: {epub_path.name} -> {output_path.name} ({format_mode.upper()})")
             return True, str(output_path)
@@ -143,18 +167,26 @@ class ConversionService:
         Args:
             mobi_path: MOBI文件路径
             output_path: 输出XTC文件路径
-            format_mode: 格式模式，"xtg"(1位单色) 或 "xth"(4级灰度)
+            format_mode: 格式模式，"xtg"(1位单色)、"xth"(4级灰度) 或 "auto"(智能混合)
         """
         temp_dir = None
         try:
             logger.info(f"开始转换MOBI: {mobi_path.name} (模式: {format_mode.upper()})")
 
-            # 如果没有指定输出路径，生成默认路径
+            # output_path 应该由 convert_to_xtc 提供（包含唯一时间戳）
+            # 如果仍然为 None，说明直接调用了此方法，需要生成路径
             if output_path is None:
                 current_dir = Path(__file__).parent.parent
                 temp_convert_dir = current_dir / "temp_convert"
                 temp_convert_dir.mkdir(exist_ok=True)
-                output_path = temp_convert_dir / (mobi_path.stem + ".xtc")
+
+                # 生成唯一文件名
+                import time
+                import random
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                random_suffix = random.randint(1000, 9999)
+                stem = mobi_path.stem[:80] if len(mobi_path.stem) > 80 else mobi_path.stem
+                output_path = temp_convert_dir / f"{stem}_{timestamp}_{random_suffix}.xtc"
 
             # 创建临时目录用于中间文件
             temp_dir = Path(tempfile.mkdtemp(prefix="mobi2xtc_"))
@@ -369,7 +401,8 @@ class ConversionService:
 
     def _render_html_content(self, soup, img, draw, y_position, images_dict,
                             font_large, font_normal, margin, line_height,
-                            page_width, page_height, output_dir, page_num):
+                            page_width, page_height, output_dir, page_num,
+                            page_info_file, page_has_image):
         """
         渲染HTML内容，支持文本和图片
 
@@ -379,24 +412,31 @@ class ConversionService:
             draw: ImageDraw对象
             y_position: 当前Y坐标
             images_dict: 图片字典 {filename: content}
+            page_info_file: 页面信息文件路径
+            page_has_image: 当前页是否包含图片
             ... 其他参数
+
+        Returns:
+            (img, draw, y_position, page_num, page_has_image)
         """
         from PIL import Image as PILImage, ImageDraw, ImageFont
         import io
 
         def create_new_page():
             """创建新页面"""
-            nonlocal img, draw, y_position, page_num
-            # 保存当前页面
+            nonlocal img, draw, y_position, page_num, page_has_image
+            # 保存当前页面，记录是否包含图片
             page_path = output_dir / f"page-{page_num:04d}.png"
             img.save(page_path)
+            self._save_page_info(page_info_file, page_num, page_has_image)
             page_num += 1
 
             # 创建新页面
             img = PILImage.new('RGB', (page_width, page_height), 'white')
             draw = ImageDraw.Draw(img)
             y_position = margin
-            return img, draw, y_position, page_num
+            page_has_image = False  # 重置标记
+            return img, draw, y_position, page_num, page_has_image
 
         # 遍历所有元素(包括嵌套的)
         # 不再限制递归深度,以找到所有图片和文本
@@ -464,7 +504,7 @@ class ConversionService:
 
                     # 如果可用高度太小，创建新页面
                     if img_height_max < page_height // 3:
-                        img, draw, y_position, page_num = create_new_page()
+                        img, draw, y_position, page_num, page_has_image = create_new_page()
                         img_height_max = page_height - y_position - margin
 
                     # 计算保持宽高比的缩放
@@ -497,7 +537,7 @@ class ConversionService:
 
                     # 检查是否需要新页面
                     if y_position + new_height > page_height - margin:
-                        img, draw, y_position, page_num = create_new_page()
+                        img, draw, y_position, page_num, page_has_image = create_new_page()
 
                     # 计算图片位置（居中）
                     x_position = (page_width - new_width) // 2
@@ -505,6 +545,9 @@ class ConversionService:
                     # 粘贴图片
                     img.paste(epub_img, (x_position, y_position))
                     y_position += new_height + 10  # 图片后增加间距
+
+                    # 标记当前页包含图片
+                    page_has_image = True
 
                     logger.info(f"渲染图片: {orig_width}x{orig_height} -> {new_width}x{new_height}, 位置: y={y_position - new_height - 10}")
 
@@ -532,7 +575,7 @@ class ConversionService:
                     for wrapped_line in wrapped_lines:
                         # 如果页面满了，创建新页面
                         if y_position > page_height - margin - line_height:
-                            img, draw, y_position, page_num = create_new_page()
+                            img, draw, y_position, page_num, page_has_image = create_new_page()
 
                         # 绘制文本行
                         draw.text((margin, y_position), wrapped_line, font=current_font, fill='black')
@@ -545,13 +588,16 @@ class ConversionService:
             elif element.name == 'br':
                 y_position += line_height // 2
 
-        return img, draw, y_position, page_num
+        return img, draw, y_position, page_num, page_has_image
 
     def convert_epub_to_png_pure(self, epub_path: Path, output_dir: Path) -> bool:
         """
         使用纯Python库将EPUB转换为PNG
         实现原理：解析EPUB，使用ebooklib提取内容，渲染为图片
         支持图片提取和渲染
+
+        返回:
+            bool: 成功返回True
         """
         try:
             import ebooklib
@@ -607,6 +653,9 @@ class ConversionService:
             line_height = 40  # 增大行高：从24增大到40，适应更大的字体
             page_num = 0
 
+            # 创建页面信息记录文件（记录每页是否包含图片）
+            page_info_file = output_dir.parent / "page_info.txt"
+
             # 遍历所有HTML内容
             for item in items:
                 if isinstance(item, ebooklib.epub.EpubHtml):
@@ -619,6 +668,7 @@ class ConversionService:
                     # 创建页面
                     img = Image.new('RGB', (page_width, page_height), 'white')
                     draw = ImageDraw.Draw(img)
+                    page_has_image = False  # 标记当前页是否包含图片
 
                     # 文本渲染位置
                     y_position = margin
@@ -631,12 +681,15 @@ class ConversionService:
                         for title_line in title_lines:
                             # 检查是否需要新页面
                             if y_position > page_height - margin - line_height:
+                                # 保存当前页，记录是否包含图片
                                 page_path = output_dir / f"page-{page_num:04d}.png"
                                 img.save(page_path)
+                                self._save_page_info(page_info_file, page_num, page_has_image)
                                 page_num += 1
                                 img = Image.new('RGB', (page_width, page_height), 'white')
                                 draw = ImageDraw.Draw(img)
                                 y_position = margin
+                                page_has_image = False  # 重置标记
 
                             draw.text((margin, y_position), title_line, font=font_large, fill='black')
                             y_position += line_height
@@ -644,16 +697,17 @@ class ConversionService:
                         y_position += 10  # 标题后额外间距
 
                     # 提取并渲染内容（文本和图片）
-                    img, draw, y_position, page_num = self._render_html_content(
+                    img, draw, y_position, page_num, page_has_image = self._render_html_content(
                         soup, img, draw, y_position, images_dict,
                         font_large, font_normal, margin, line_height,
-                        page_width, page_height, output_dir, page_num
+                        page_width, page_height, output_dir, page_num, page_info_file, page_has_image
                     )
 
                     # 保存最后一页
                     if y_position > margin:
                         page_path = output_dir / f"page-{page_num:04d}.png"
                         img.save(page_path)
+                        self._save_page_info(page_info_file, page_num, page_has_image)
                         page_num += 1
 
             # 检查是否生成了图片
@@ -672,6 +726,21 @@ class ConversionService:
             logger.error(f"EPUB转PNG失败: {e}")
             return False
 
+    def _save_page_info(self, info_file: Path, page_num: int, has_image: bool):
+        """
+        保存页面信息到文件
+
+        Args:
+            info_file: 信息文件路径
+            page_num: 页码
+            has_image: 是否包含图片
+        """
+        try:
+            with open(info_file, 'a', encoding='utf-8') as f:
+                f.write(f"{page_num}:{1 if has_image else 0}\n")
+        except Exception as e:
+            logger.warning(f"保存页面信息失败: {e}")
+
     def convert_pdf_to_xtc(self, pdf_path: Path, output_path: Optional[Path] = None, format_mode: str = "xtg") -> Tuple[bool, str]:
         """
         将PDF转换为XTC
@@ -688,12 +757,20 @@ class ConversionService:
         try:
             logger.info(f"开始转换PDF: {pdf_path.name} (模式: {format_mode.upper()})")
 
-            # 如果没有指定输出路径，生成默认路径
+            # output_path 应该由 convert_to_xtc 提供（包含唯一时间戳）
+            # 如果仍然为 None，说明直接调用了此方法，需要生成路径
             if output_path is None:
                 current_dir = Path(__file__).parent.parent
                 temp_convert_dir = current_dir / "temp_convert"
                 temp_convert_dir.mkdir(exist_ok=True)
-                output_path = temp_convert_dir / (pdf_path.stem + ".xtc")
+
+                # 生成唯一文件名
+                import time
+                import random
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                random_suffix = random.randint(1000, 9999)
+                stem = pdf_path.stem[:80] if len(pdf_path.stem) > 80 else pdf_path.stem
+                output_path = temp_convert_dir / f"{stem}_{timestamp}_{random_suffix}.xtc"
 
             # 创建临时目录用于中间文件
             temp_dir = Path(tempfile.mkdtemp(prefix="pdf2xtc_"))
@@ -1173,6 +1250,210 @@ class ConversionService:
         except Exception as e:
             logger.error(f"PNG文件夹转XTC失败: {e}")
             return False
+
+    def convert_png_folder_to_xtc_auto(self, png_dir: Path, output_path: Path) -> bool:
+        """
+        将PNG文件夹转换为XTC（智能混合模式）
+        根据页面信息文件自动选择格式：
+        - 无图页面使用XTG（1位单色）- 体积小、速度快
+        - 有图页面使用XTH（4级灰度）- 图片质量好
+
+        Args:
+            png_dir: PNG文件所在目录
+            output_path: 输出XTC文件路径
+        """
+        try:
+            # 获取所有PNG文件并排序
+            png_files = sorted(png_dir.glob("page-*.png"))
+
+            if not png_files:
+                logger.error(f"PNG文件夹中没有找到文件: {png_dir}")
+                return False
+
+            logger.info(f"找到 {len(png_files)} 个PNG文件（智能混合模式）")
+
+            # 读取页面信息文件
+            page_info_file = png_dir.parent / "page_info.txt"
+            page_has_image_map = {}  # {page_num: has_image}
+
+            if page_info_file.exists():
+                try:
+                    with open(page_info_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and ':' in line:
+                                page_num_str, has_image_str = line.split(':', 1)
+                                page_has_image_map[int(page_num_str)] = (has_image_str == '1')
+                    logger.info(f"成功读取页面信息文件: {len(page_has_image_map)} 条记录")
+                except Exception as e:
+                    logger.warning(f"读取页面信息文件失败: {e}，将使用图像检测")
+
+            # 转换每个PNG为XTG/XTH字节（根据页面信息或图像检测）
+            page_blobs = []
+            xtg_count = 0
+            xth_count = 0
+
+            for i, png_path in enumerate(png_files):
+                img = Image.open(png_path)
+
+                # 从页面信息获取是否有图片，如果没有则使用图像检测
+                if i in page_has_image_map:
+                    has_image = page_has_image_map[i]
+                    source = "信息文件"
+                else:
+                    # 降级到图像检测
+                    has_image = self._detect_page_content_type(img)
+                    source = "图像检测"
+
+                if has_image:
+                    # 有图页面使用XTH（4级灰度）
+                    page_bytes = self.png_to_xth_bytes(img, force_size=(480, 800))
+                    xth_count += 1
+                    format_tag = "XTH"
+                else:
+                    # 纯文字页面使用XTG（1位单色）
+                    page_bytes = self.png_to_xtg_bytes(img, force_size=(480, 800))
+                    xtg_count += 1
+                    format_tag = "XTG"
+
+                # 调试：打印第一个页面的信息
+                if i == 0:
+                    logger.info(f"第一个页面 ({png_path.name}): 格式={format_tag}, 来源={source}, 大小={len(page_bytes)}, 前4字节={page_bytes[:4].hex()}")
+
+                page_blobs.append((page_bytes, has_image))
+
+            # 构建混合XTC文件
+            self.build_xtc_from_page_blobs_mixed(page_blobs, output_path)
+
+            logger.info(f"混合模式XTC文件创建成功: {output_path}")
+            logger.info(f"  - XTG页面（纯文字）: {xtg_count} 页")
+            logger.info(f"  - XTH页面（含图片）: {xth_count} 页")
+            logger.info(f"  - 总计: {len(page_blobs)} 页")
+            return True
+
+        except Exception as e:
+            logger.error(f"PNG文件夹转XTC（混合模式）失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+
+    def _detect_page_content_type(self, img: Image.Image) -> bool:
+        """
+        检测页面内容类型（文字或图片）
+
+        使用图像复杂度和梯度变化来判断：
+        - 文字页面：梯度变化稀疏、分布均匀
+        - 图片页面：梯度变化密集、纹理复杂
+
+        Args:
+            img: PIL Image对象
+
+        Returns:
+            True表示包含图片，False表示主要是文字
+        """
+        import numpy as np
+
+        # 转换为灰度
+        if img.mode != 'L':
+            img = img.convert('L')
+
+        # 调整为较小尺寸进行快速分析
+        small_img = img.resize((120, 200), Image.BOX)
+        pixels = np.array(small_img, dtype=np.float32)
+
+        # 使用简单的梯度算子检测边缘（不依赖scipy）
+        # 计算水平和垂直梯度
+        gradient_x = np.abs(pixels[:, 1:] - pixels[:, :-1])  # 水平梯度
+        gradient_y = np.abs(pixels[1:, :] - pixels[:-1, :])  # 垂直梯度
+
+        # 计算平均梯度强度
+        avg_gradient_x = gradient_x.mean()
+        avg_gradient_y = gradient_y.mean()
+        avg_gradient = (avg_gradient_x + avg_gradient_y) / 2
+
+        # 计算标准差（纹理复杂度）
+        std_dev = pixels.std()
+
+        # 计算高频成分（通过Laplacian算子的简化版）
+        # 检测像素值的快速变化
+        laplacian = (
+            np.roll(pixels, 1, axis=0) +
+            np.roll(pixels, -1, axis=0) +
+            np.roll(pixels, 1, axis=1) +
+            np.roll(pixels, -1, axis=1) -
+            4 * pixels
+        )
+        high_freq = np.abs(laplacian).mean()
+
+        # 判断逻辑（综合多个指标）：
+        # 1. 高频成分 > 8 => 图片（丰富的纹理细节）
+        # 2. 平均梯度 > 12 => 图片（强烈的边缘变化）
+        # 3. 标准差 > 50 => 图片（高对比度）
+        has_image = high_freq > 8 or avg_gradient > 12 or std_dev > 50
+
+        # 调试信息（仅在第一页）
+        if not hasattr(self, '_detection_logged'):
+            logger.debug(f"页面检测: 高频成分={high_freq:.1f}, 梯度={avg_gradient:.1f}, 标准差={std_dev:.1f}, 结果={'图片' if has_image else '文字'}")
+            self._detection_logged = True
+
+        return has_image
+
+    def build_xtc_from_page_blobs_mixed(self, page_blobs_with_info: List, out_path: Path, read_direction=0) -> None:
+        """
+        从混合格式（XTG/XTH）的字节数据构建XTC文件
+
+        Args:
+            page_blobs_with_info: [(page_bytes, has_image), ...] 列表
+            out_path: 输出XTC文件路径
+            read_direction: 阅读方向
+        """
+        page_count = len(page_blobs_with_info)
+        header_size = 48
+        index_entry_size = 16
+        index_offset = header_size
+
+        data_offset = index_offset + page_count * index_entry_size
+
+        # Index table: <Q I H H> per page
+        index_table = bytearray()
+        rel_offset = data_offset
+        for page_bytes, has_image in page_blobs_with_info:
+            w, h = struct.unpack_from("<HH", page_bytes, 4)
+            entry = struct.pack("<Q I H H", rel_offset, len(page_bytes), w, h)
+            index_table += entry
+            rel_offset += len(page_bytes)
+
+        # 无缩略图
+        thumb_offset = 0
+
+        # XTC header: <4sHHBBBBIQQQQ> little-endian
+        xtc_header = struct.pack(
+            "<4sHHBBBBIQQQQ",
+            b"XTC\x00",         # mark
+            0x0100,             # version
+            page_count,         # pageCount
+            read_direction,     # readDirection
+            0,                  # hasMetadata
+            0,                  # hasThumbnails
+            0,                  # hasChapters
+            0,                  # currentPage
+            0,                  # metadataOffset
+            index_offset,       # indexOffset
+            data_offset,        # dataOffset
+            thumb_offset        # thumbOffset
+        )
+
+        assert len(xtc_header) == 48
+        logger.debug(f"混合模式XTC: index offset={index_offset}, data offset={data_offset}")
+
+        # 写入文件
+        with open(out_path, "wb") as f:
+            f.write(xtc_header)
+            f.write(index_table)
+            for page_bytes, _ in page_blobs_with_info:
+                f.write(page_bytes)
+
+        logger.info(f"写入混合模式XTC文件 ({page_count} 页) -> {out_path}")
 
     def png_to_xtg_bytes(self, img: Image.Image, force_size=(480, 800), threshold=168):
         """
